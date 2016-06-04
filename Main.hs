@@ -1,5 +1,7 @@
 import Codec.Picture
 import Debug.Trace
+import Data.List
+import qualified Data.Map as Map
 
 main = do
   Right img0 <- readImage "PNG_transparency_demonstration_1.png"
@@ -10,12 +12,12 @@ main = do
 --  print (imageWidth img)
 
   let imageWidth' :: Double 
-      imageWidth' = 9.99 -- (1 - 0.00001) * fromIntegral (imageWidth img)
+      imageWidth' = (1 - 0.00001) * fromIntegral (imageWidth img)
   let imageHeight' :: Double
-      imageHeight' = 9.99 -- (1 - 0.00001) * fromIntegral (imageHeight img)
+      imageHeight' = (1 - 0.00001) * fromIntegral (imageHeight img)
 
   let toPixCoord :: Coord Double -> Coord Int
-      toPixCoord (x,y) = (floor $ x * imageWidth', floor $ y * imageHeight')
+      toPixCoord (x,y) = (floor $ x * imageWidth', floor $ (1 - y) * imageHeight')
     
 
 
@@ -26,7 +28,7 @@ main = do
 
   let toPixValue :: Coord Int -> Bool
       toPixValue (x,y) = case pixelAt img x y of
-                           PixelRGBA8 _ _ _ a -> a > 250
+                           PixelRGBA8 _ _ _ a -> a > 100
   
   putStr $ unlines [  [ case pixelAt img x y of
                           PixelRGBA8 _ _ _ a -> if a > 200 then '#' else ' '
@@ -35,8 +37,37 @@ main = do
                    | y <- map (*20) [0..39]
                    ]
                    
-  print $ generateMesh toPixCoord toPixValue (Tri (0,0) (1,1) (0,1))
+  let get x = getTess x []
+
+  let t1 = generateMesh 1 toPixCoord toPixValue (Tri (0,0) (1,1) (0,1))  
+  let t2 = generateMesh 1 toPixCoord toPixValue (Tri (1,1) (0,0) (1,0))
+  let mesh = get $ Split t1 t2
+
+  print $ length $ mesh
+
+  let points = map head $ group $ sort $ concat [ [p1,p2,p3] | Tri p1 p2 p3 <- mesh ]
   
+  let pointsDB = Map.fromList (points `zip` [1..])
+--  print pointsDB
+
+  let f p = case Map.lookup p pointsDB of
+              Just n -> n
+              Nothing -> error "internal error"
+              
+  let g p = show (f p) ++ "/" ++ show (f p) ++ "/1" 
+
+  writeFile "dice.obj" $ unlines $
+     ["# geometric vertices"] ++
+     ["v " ++ show x ++ " " ++ show y ++ " 0" | (x,y) <- Map.keys pointsDB ] ++
+     ["# texture vertices"] ++
+     ["vt " ++ show x ++ " " ++ show y ++ " 0" | (x,y) <- Map.keys pointsDB ] ++
+     ["# normal"] ++
+     ["vn 0 0 1"] ++
+     ["# faces"] ++
+     ["usemtl image"] ++
+     ["f " ++ (g p1) ++ " " ++ (g p2) ++ " " ++ (g p3)
+     | (Tri p1 p2 p3) <- mesh 
+     ]
 
 type Coord d = (d,d)
 
@@ -123,12 +154,18 @@ data Mesh = Split Mesh Mesh
           | Empty
     deriving Show
 
+getTess :: Mesh -> [Tri] -> [Tri]
+getTess (Split m1 m2) r = getTess m1 (getTess m2 r)
+getTess (Triangle t)  r = t : r
+getTess Empty         r = r
+
+
 -- If you return Triangle, then it must be for the incomming Tri
-generateMesh :: (Coord Double -> Coord Int) -> (Coord Int -> Bool) -> Tri -> Mesh
-generateMesh pc f tri@(Tri p1 p2 p3)
-  | traceShow ("genMesh",show tri,pp1,pp2,pp3,pp1 == pp2 && pp2 == pp3 ) False = undefined
-  | pp1 == pp2 && pp2 == pp3 
-          = if f pp1
+generateMesh :: Int -> (Coord Double -> Coord Int) -> (Coord Int -> Bool) -> Tri -> Mesh
+generateMesh n pc f tri@(Tri p1 p2 p3)
+--  | traceShow ("genMesh",n,areaOfTriangle tri,pp1 == pp2 && pp2 == pp3 ) False = undefined
+  | areaOfTriangle tri < (0.001 ^ 2)
+          = if f pp1 && f pp2 && f pp3 -- all three point need to be inside
             then Triangle tri
             else Empty
   | otherwise = case (m1,m2) of
@@ -140,8 +177,8 @@ generateMesh pc f tri@(Tri p1 p2 p3)
    pp2 = pc p2
    pp3 = pc p3
    (t1,t2) = splitTri tri
-   m1 = generateMesh pc f t1
-   m2 = generateMesh pc f t2
+   m1 = generateMesh (n+1) pc f t1
+   m2 = generateMesh (n+1) pc f t2
 
 
 {-
@@ -202,3 +239,8 @@ generateQuad tri@(Tri p1 p2 p3) pc f
    xm   = (x + x') / 2
    ym   = (y + y') / 2
 -}
+
+
+areaOfTriangle :: Tri -> Double
+areaOfTriangle (Tri (x1,y1) (x2,y2) _) = (((x1 - x2) ^ 2) + ((y1 - y2) ^ 2)) / 2
+

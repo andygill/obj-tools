@@ -21,5 +21,6 @@ executable obj-tools
   -- other-extensions:    
   build-depends:       base >=4.8 && <4.9
                ,       JuicyPixels == 3.2.7
+               ,       containers
   -- hs-source-dirs:      
   default-language:    Haskell2010
