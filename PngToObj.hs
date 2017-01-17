@@ -2,24 +2,43 @@ import Codec.Picture
 import Debug.Trace
 import Data.List
 import qualified Data.Map as Map
+import System.Environment
+import System.Console.GetOpt
 
+data Options = Options 
+  { threshold :: Double
+  }
+
+defaultOptions :: Options
+defaultOptions = Options
+ { threshold = 0.5
+ }
+
+options :: [OptDescr (Options -> Options)]
+options = []
+
+main :: IO ()
 main = do
-  Right img0 <- readImage "PNG_transparency_demonstration_1.png"
+    argv <- getArgs
+    case getOpt Permute options argv of
+      (o,[src,dest],[]) -> main1 src dest (foldl (flip id) (defaultOptions) o)
+      (_,_,errs) -> ioError (userError (concat errs ++ usageInfo header options))
+  where header = "Usage: png-to-obj [OPTION...] file.png file.obj"
+
+main1 :: FilePath -> FilePath -> Options -> IO ()
+main1 src dest opts = do
+  Right img0 <- readImage src
   let img = convertRGBA8 img0
---  Right (ImageRGB8 img) <- readImage "PNG_transparency_demonstration_1.png"
-  print (imageWidth img)
-  print (imageHeight img)
---  print (imageWidth img)
 
   let imageWidth' :: Double 
-      imageWidth' = (1 - 0.00001) * fromIntegral (imageWidth img)
+      imageWidth' = (1 - epsilon) * fromIntegral (imageWidth img)
   let imageHeight' :: Double
-      imageHeight' = (1 - 0.00001) * fromIntegral (imageHeight img)
+      imageHeight' = (1 - epsilon) * fromIntegral (imageHeight img)
+
 
   let toPixCoord :: Coord Double -> Coord Int
       toPixCoord (x,y) = (floor $ x * imageWidth', floor $ (1 - y) * imageHeight')
     
-
 
   print $ pixelAt img 100 100
 
@@ -29,14 +48,7 @@ main = do
   let toPixValue :: Coord Int -> Bool
       toPixValue (x,y) = case pixelAt img x y of
                            PixelRGBA8 _ _ _ a -> a > 100
-  
-  putStr $ unlines [  [ case pixelAt img x y of
-                          PixelRGBA8 _ _ _ a -> if a > 200 then '#' else ' '
-                      | x <- map (*10) [0..59]
-                      ]
-                   | y <- map (*20) [0..39]
-                   ]
-                   
+
   let get x = getTess x []
 
   let t1 = generateMesh 1 toPixCoord toPixValue (Tri (0,0) (1,1) (0,1))  
@@ -56,7 +68,7 @@ main = do
               
   let g p = show (f p) ++ "/" ++ show (f p) ++ "/1" 
 
-  writeFile "dice.obj" $ unlines $
+  writeFile dest $ unlines $
      ["# geometric vertices"] ++
      ["v " ++ show x ++ " " ++ show y ++ " 0" | (x,y) <- Map.keys pointsDB ] ++
      ["# texture vertices"] ++
@@ -69,6 +81,25 @@ main = do
      | (Tri p1 p2 p3) <- mesh 
      ]
 
+
+epsilon :: Double
+epsilon = 0.00001
+
+{-
+main' = do
+  Right img0 <- readImage "PNG_transparency_demonstration_1.png"
+  let img = convertRGBA8 img0
+--  Right (ImageRGB8 img) <- readImage "PNG_transparency_demonstration_1.png"
+  print (imageWidth img)
+  print (imageHeight img)
+--  print (imageWidth img)
+
+  let imageWidth' :: Double 
+      imageWidth' = (1 - 0.00001) * fromIntegral (imageWidth img)
+  let imageHeight' :: Double
+      imageHeight' = (1 - 0.00001) * fromIntegral (imageHeight img)
+
+-}
 type Coord d = (d,d)
 
 type Bounds = (Coord Double,Coord Double)
