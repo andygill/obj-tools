@@ -21,3 +21,16 @@ executable png-to-obj
                ,       containers
   -- hs-source-dirs:      
   default-language:    Haskell2010
+
+executable obj-to-aframe
+  main-is:             ObjToAFrame.hs
+  -- other-modules:       
+  -- other-extensions:    
+  build-depends:       base >=4.8 && <4.9
+               ,       aframe-blueprint >= 0.1.0.0
+               ,       linear >= 1.20.5
+               ,       text
+               ,       vector >= 0.11
+               ,       wavefront >= 0.7.0.2
+  -- hs-source-dirs:      
+  default-language:    Haskell2010
