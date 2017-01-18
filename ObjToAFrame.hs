@@ -1,9 +1,12 @@
 module Main where
 
 import Codec.Wavefront
-import Linear.V3 (V3(..))
+import Linear.V3 (V3(..),cross)
 import Linear.Vector
 import Linear.Affine
+import Linear.Metric
+import Linear.Quaternion
+import Linear.Matrix as M
 
 
 import Data.Vector (toList,(!))
@@ -13,6 +16,7 @@ import Text.AFrame (AFrame)
 import qualified Data.List as List
 import Linear.Epsilon
 import qualified Data.Text as T
+
 
 main = do
         Right obj <- fromFile "example.obj"
@@ -49,18 +53,33 @@ debugFs fs = DSL.scene $ do
         ]
     sequence_
         [ DSL.cone $ do
-               DSL.color "green"
-               DSL.radiusBottom 0.03
-               DSL.radiusTop 0.00
+               DSL.color $ if i == (1 :: Int) then "red" else "green"
+               DSL.radiusBottom 0.00
+               DSL.radiusTop 0.03
                let d = distanceA v1 v2
                DSL.height (f $ distanceA v1 v2 - 0.05)
                DSL.position (f x,f y,f z)
+               let c@(V3 xc yc zc) = cross (v1 .-. v2) (V3 0 1 0)
+               let d = dot (normalize (v1 .-. v2)) (normalize (V3 0 1 0))
+               let cn | nearZero c = V3 0 0 1
+                      | otherwise  = normalize c
+               let ca = acos d
                let V3 x' y' z' = v1 .-. v2
-               let xy = if nearZero y' then pi/2 else atan (x' / y')
-               let xz = if nearZero z' then pi/2 else atan (x' / z')
-               DSL.from $ T.pack $ show $ (x',y',xy,xz)
-               DSL.rotation (0, f $ 90 + xz * (180 / pi), f $ xy * (180 / pi) )
-        | (v1,v2) <- edges
+               let q = axisAngle cn ca
+
+              
+{-
+              DSL.sphere $ do
+                   DSL.color "red"
+                   DSL.radius 0.02
+                   DSL.position (f $ xc / 30,f $ yc / 30,f $ zc / 30)
+--               let xy = if nearZero x' then pi/2 else atan (y' / x')
+--               let xz = if nearZero x' then pi/2 else atan (z' / x')
+-}
+               let (roll,pitch,yaw) = quaternionToYXZEuler q
+               DSL.rotation $ (g roll,g pitch,g yaw)
+--               DSL.from $ T.pack $ show $ (q,d,cn,ca)
+        | (i,v1,v2) <- edges 
         , let V3 x y z = lerp 0.5 v1 v2        
         ]
 
@@ -70,11 +89,13 @@ debugFs fs = DSL.scene $ do
     f :: Float -> DSL.Number
     f = fromRational . toRational         
 
-    edges :: [(V3 Float,V3 Float)]
+    g = f . (/pi) . (* 180)
+
+    edges :: [(Int,V3 Float,V3 Float)]
     edges = -- List.nub $
-        [ (v,v')
+        [ (i,v,v')
         | F ps _ <- fs 
-        , (v,v') <- ps `zip` (tail ps ++ [ head ps])
+        , ((v,v'),i) <- ((last ps : init ps) `zip` ps) `zip` [1..]
         ]
 
 
@@ -86,3 +107,20 @@ debugFs fs = DSL.scene $ do
         ]
                 
         
+
+-- AFrame uses YXZ Euler, because headsets use YXZ Euler.
+quaternionToYXZEuler :: (RealFloat a) => Quaternion a -> (a,a,a)
+quaternionToYXZEuler q = (rX,rY,rZ)
+  where
+     V3 (V3 m11 m12 m13)
+        (V3 m21 m22 m23)
+        (V3 m31 m32 m33) = M.transpose $ fromQuaternion q
+
+
+     rX = asin(- (max (-1) $ min m23 1))
+     rY | abs m23 < 0.99999 = atan2 m13    m33
+        | otherwise         = atan2 (-m31) m11
+     rZ | abs m23 < 0.99999 = atan2 m21    m22
+        | otherwise         = 0
+               
+
