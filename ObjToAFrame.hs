@@ -65,17 +65,8 @@ debugFs fs = DSL.scene $ do
                       | otherwise  = normalize c
                let ca = acos d
                let V3 x' y' z' = v1 .-. v2
-               let q = axisAngle cn ca
-
-              
-{-
-              DSL.sphere $ do
-                   DSL.color "red"
-                   DSL.radius 0.02
-                   DSL.position (f $ xc / 30,f $ yc / 30,f $ zc / 30)
---               let xy = if nearZero x' then pi/2 else atan (y' / x')
---               let xz = if nearZero x' then pi/2 else atan (z' / x')
--}
+--               let q = axisAngle cn ca
+               let q = rotateBetween (V3 0 1 0) (v2 .-. v1)
                let (roll,pitch,yaw) = quaternionToYXZEuler q
                DSL.rotation $ (g roll,g pitch,g yaw)
 --               DSL.from $ T.pack $ show $ (q,d,cn,ca)
@@ -109,6 +100,7 @@ debugFs fs = DSL.scene $ do
         
 
 -- AFrame uses YXZ Euler, because headsets use YXZ Euler.
+-- adapted from https://github.com/mrdoob/three.js/blob/master/src/math/Euler.js
 quaternionToYXZEuler :: (RealFloat a) => Quaternion a -> (a,a,a)
 quaternionToYXZEuler q = (rX,rY,rZ)
   where
@@ -124,3 +116,13 @@ quaternionToYXZEuler q = (rX,rY,rZ)
         | otherwise         = 0
                
 
+-- This will be the reverse of the above usage
+rotateBetween :: (Epsilon a, Floating a) => V3 a -> V3 a -> Quaternion a
+rotateBetween v1 v2 = q
+  where
+    c@(V3 xc yc zc) = cross v1 v2
+    d = dot (normalize v1) (normalize v2)
+    cn | nearZero c = V3 0 0 1 -- TODO: this should be perpendicular to v1
+       | otherwise  = normalize c
+    ca = acos d
+    q = axisAngle cn ca
