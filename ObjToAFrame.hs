@@ -105,7 +105,7 @@ quaternionToYXZEuler q = (rX,rY,rZ)
   where
      V3 (V3 m11 m12 m13)
         (V3 m21 m22 m23)
-        (V3 m31 m32 m33) = M.transpose $ fromQuaternion q
+        (V3 m31 m32 m33) = id $ fromQuaternion q
 
 
      rX = asin(- (max (-1) $ min m23 1))
