@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 module Main where
 
 import Codec.Wavefront
@@ -17,6 +18,10 @@ import qualified Data.List as List
 import Linear.Epsilon
 import qualified Data.Text as T
 
+import Debug.Trace as D
+
+import Test.QuickCheck
+import Control.Applicative
 
 main = do
         Right obj <- fromFile "example.obj"
@@ -54,22 +59,16 @@ debugFs fs = DSL.scene $ do
     sequence_
         [ DSL.cone $ do
                DSL.color $ if i == (1 :: Int) then "red" else "green"
-               DSL.radiusBottom 0.00
-               DSL.radiusTop 0.03
+               DSL.radiusBottom 0.03
+               DSL.radiusTop 0.00
                let d = distanceA v1 v2
                DSL.height (f $ distanceA v1 v2 - 0.05)
                DSL.position (f x,f y,f z)
-               let c@(V3 xc yc zc) = cross (v1 .-. v2) (V3 0 1 0)
-               let d = dot (normalize (v1 .-. v2)) (normalize (V3 0 1 0))
-               let cn | nearZero c = V3 0 0 1
-                      | otherwise  = normalize c
-               let ca = acos d
-               let V3 x' y' z' = v1 .-. v2
---               let q = axisAngle cn ca
-               let q = rotateBetween (V3 0 1 0) (v2 .-. v1)
+               let q = rotateBetween (V3 0 (-1) 0) (v2 .-. v1)
                let (roll,pitch,yaw) = quaternionToYXZEuler q
-               DSL.rotation $ (g roll,g pitch,g yaw)
---               DSL.from $ T.pack $ show $ (q,d,cn,ca)
+               DSL.rotation $ D.trace (show (roll,pitch,yaw)) $ (g roll,g pitch,g yaw)
+               DSL.from $ T.pack $ show $ (roll,pitch,yaw)
+               return ()
         | (i,v1,v2) <- edges 
         , let V3 x y z = lerp 0.5 v1 v2        
         ]
@@ -117,12 +116,24 @@ quaternionToYXZEuler q = (rX,rY,rZ)
                
 
 -- This will be the reverse of the above usage
-rotateBetween :: (Epsilon a, Floating a) => V3 a -> V3 a -> Quaternion a
+rotateBetween :: (Show a, Epsilon a, Floating a) => V3 a -> V3 a -> Quaternion a
 rotateBetween v1 v2 = q
   where
     c@(V3 xc yc zc) = cross v1 v2
     d = dot (normalize v1) (normalize v2)
-    cn | nearZero c = V3 0 0 1 -- TODO: this should be perpendicular to v1
+    cn | nearZero c = D.trace (show ("near zero",c,d,v1,v2)) $ V3 1 0 0 -- TODO: this should be perpendicular to v1
        | otherwise  = normalize c
     ca = acos d
     q = axisAngle cn ca
+
+prop_rotateBetween (v1::V3 Double) v2 = 
+    not (nearZero v1 || nearZero v2) ==>
+--    label (show (v1,v2)) $ 
+    nearZero $ test_rotateBetween (normalize v1) (normalize v2)
+
+test_rotateBetween v1 v2 = rotate (rotateBetween v1 v2) v1 - v2
+
+instance (Num a, Arbitrary a) => Arbitrary (V3 a) where
+    arbitrary = V3 <$> a <*> a <*> a
+     where a = oneof [pure 0, pure 1, pure (-1)] -- , arbitrary]
+    

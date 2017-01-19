@@ -29,6 +29,7 @@ executable obj-to-aframe
   build-depends:       base >=4.8 && <4.9
                ,       aframe-blueprint >= 0.1.0.0
                ,       linear >= 1.20.5
+               ,       QuickCheck
                ,       text
                ,       vector >= 0.11
                ,       wavefront >= 0.7.0.2
