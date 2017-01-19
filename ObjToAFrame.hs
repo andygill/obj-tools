@@ -64,7 +64,7 @@ debugFs fs = DSL.scene $ do
                let d = distanceA v1 v2
                DSL.height (f $ distanceA v1 v2 - 0.05)
                DSL.position (f x,f y,f z)
-               let q = rotateBetween (V3 0 (-1) 0) (v2 .-. v1)
+               let q = rotateBetween (V3 0 (1) 0) (v2 .-. v1)
                let (roll,pitch,yaw) = quaternionToYXZEuler q
                DSL.rotation $ D.trace (show (roll,pitch,yaw)) $ (g roll,g pitch,g yaw)
                DSL.from $ T.pack $ show $ (roll,pitch,yaw)
