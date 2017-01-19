@@ -116,18 +116,26 @@ quaternionToYXZEuler q = (rX,rY,rZ)
                
 
 -- This will be the reverse of the above usage
-rotateBetween :: (Show a, Epsilon a, Floating a) => V3 a -> V3 a -> Quaternion a
-rotateBetween v1 v2 = q
+rotateBetween :: (RealFloat a, Show a, Epsilon a, Floating a) => V3 a -> V3 a -> Quaternion a
+rotateBetween v1 v2 
+    | nearZero c && nearZero (d - 1) = 1
+    | nearZero c && nearZero (d + 1) && (nearZero (mid - v1) || nearZero (mid - v2)) 
+                                     = axisAngle (V3 1 0 0) pi 
+    | nearZero c && nearZero (d + 1) = rotateBetween v1 mid * rotateBetween mid v2
+    | otherwise  = axisAngle cn ca
   where
     c@(V3 xc yc zc) = cross v1 v2
     d = dot (normalize v1) (normalize v2)
-    cn | nearZero c = D.trace (show ("near zero",c,d,v1,v2)) $ V3 1 0 0 -- TODO: this should be perpendicular to v1
-       | otherwise  = normalize c
+    cn = normalize c
     ca = acos d
     q = axisAngle cn ca
+    
+    mid = V3 0 1 0
+        
 
-prop_rotateBetween (v1::V3 Double) v2 = 
+prop_rotateBetween (v1::V3 Double) v2 =
     not (nearZero v1 || nearZero v2) ==>
+--    not (negate v1 == v2) ==> -- TODO: remote this qualifier
 --    label (show (v1,v2)) $ 
     nearZero $ test_rotateBetween (normalize v1) (normalize v2)
 
@@ -135,5 +143,5 @@ test_rotateBetween v1 v2 = rotate (rotateBetween v1 v2) v1 - v2
 
 instance (Num a, Arbitrary a) => Arbitrary (V3 a) where
     arbitrary = V3 <$> a <*> a <*> a
-     where a = oneof [pure 0, pure 1, pure (-1)] -- , arbitrary]
-    
+     where a = oneof [pure 0, pure 1, pure (-1), arbitrary]
+
