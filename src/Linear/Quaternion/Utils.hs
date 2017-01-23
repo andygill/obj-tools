@@ -39,13 +39,14 @@ quaternionToEuler o@YXZ q = Euler o rX rY rZ
         | otherwise         = 0
                
 
--- | Take two vectors, and figure out how to rotate between them.
-rotateBetween :: (RealFloat a, Show a, Epsilon a, Floating a) => V3 a -> V3 a -> Quaternion a
-rotateBetween v1 v2 
+-- | Take two vectors, and figure a 'Quaternion' that rotates between them.
+--   The result 'Quaternion' might not be unique.
+betweenq :: (RealFloat a, Show a, Epsilon a, Floating a) => V3 a -> V3 a -> Quaternion a
+betweenq v1 v2 
     | nearZero c && nearZero (d - 1) = 1
     | nearZero c && nearZero (d + 1) && (nearZero (mid - v1) || nearZero (mid - v2)) 
                                      = axisAngle (V3 1 0 0) pi 
-    | nearZero c && nearZero (d + 1) = rotateBetween v1 mid * rotateBetween mid v2
+    | nearZero c && nearZero (d + 1) = betweenq v1 mid * betweenq mid v2
     | otherwise  = axisAngle cn ca
   where
     c@(V3 xc yc zc) = cross v1 v2
