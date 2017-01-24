@@ -31,22 +31,27 @@ quaternionToEuler o q = Euler o rX rY rZ
      -- adapted from https://github.com/mrdoob/three.js/blob/master/src/math/Euler.js
      V3 (V3 m11 m12 m13)
         (V3 m21 m22 m23)
-        (V3 m31 m32 m33) = m !*! fromQuaternion q !*! m
+        (V3 m31 m32 m33) = m !*! fromQuaternion q !*! transpose m
 
      vX = V3 1 0 0
      vY = V3 0 1 0
      vZ = V3 0 0 1
 
      m = case o of
-           XYZ ->    V3 vX vY vZ
-           XZY -> - (V3 vX vZ vY)
-           YXZ -> - (V3 vY vX vZ)
-                            
-     V3 rX rY rZ = res *! (m !*!
-         case o of
-           XYZ -> identity
-           XZY -> identity
-           YXZ -> identity)
+           XYZ -> V3 vX vY vZ
+           XZY -> V3 vX vZ vY
+           YXZ -> V3 vY vX vZ
+           YZX -> V3 vY vZ vX -- **
+           ZXY -> V3 vZ vX vY
+           ZYX -> V3 vZ vY vX
+     sgn = case o of
+            XZY -> - V3 1 1 1
+            YXZ -> - V3 1 1 1
+            ZYX -> - V3 1 1 1
+            _   ->   V3 1 1 1
+
+     V3 rX rY rZ = (res *! m) * sgn
+     
 {-
                           XYZ -> (r1,r2,r3)
          XZY -> (-r1,-r3,-r2)
@@ -101,6 +106,9 @@ eulerToQuaternion (Euler o x y z) =
       XYZ -> 1 * _x * _y * _z
       XZY -> 1 * _x * _z * _y
       YXZ -> 1 * _y * _x * _z
+      YZX -> 1 * _y * _z * _x
+      ZXY -> 1 * _z * _x * _y
+      ZYX -> 1 * _z * _y * _x
   where
       _x = axisAngle (V3 1 0 0) x 
       _y = axisAngle (V3 0 1 0) y 

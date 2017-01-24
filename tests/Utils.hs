@@ -70,7 +70,14 @@ newtype A'Order = A'Order Order
   deriving Show
 
 instance Arbitrary A'Order where
-    arbitrary = A'Order <$> elements [XYZ, XZY, YXZ]
+    arbitrary = A'Order <$> elements 
+        [ XYZ
+        , XZY
+        , YXZ
+        , YZX
+        , ZXY
+        , ZYX
+        ]
 
 
 data V = V String | Z | One | Neg V | Plus V V | Times V V
@@ -119,10 +126,18 @@ m' = fmap (fmap V)
        (V3 "_"    "-m31" "+m33")
 
 
-vX = V3 1 0 0 :: V3 Double
-vY = V3 0 1 0 :: V3 Double
-vZ = V3 0 0 1 :: V3 Double
+vX = V3 1 0 0 :: V3 V
+vY = V3 0 1 0 :: V3 V
+vZ = V3 0 0 1 :: V3 V
 
 _1 (V3 x _ _) = x
 _2 (V3 _ x _) = x
 _3 (V3 _ _ x) = x
+
+bad o (q :: Quaternion Double) = do
+    print o
+    print q
+    let e = quaternionToEuler o q
+    print e
+    let q' = eulerToQuaternion e
+    print q'
