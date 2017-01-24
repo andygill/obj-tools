@@ -8,6 +8,7 @@ import Linear.Quaternion
 import Linear.V3 (V3(..),cross)
 import Linear.Vector
 
+import qualified Debug.Trace as D
 
 -- | This is an alternative to the Quaternion format,
 --   following the THREE.js representation of Euler.
@@ -24,7 +25,7 @@ data Order = XYZ | XZY | YXZ | YZX | ZXY | ZYX
      deriving (Eq, Ord, Show, Read)
 
 -- | Convert a 'Quaternion' into a (ordered) 'Euler'.
-quaternionToEuler :: RealFloat a => Order -> Quaternion a -> Euler a
+quaternionToEuler :: (Epsilon a, RealFloat a) => Order -> Quaternion a -> Euler a
 quaternionToEuler o@YXZ q = Euler o rX rY rZ
   where
      -- adapted from https://github.com/mrdoob/three.js/blob/master/src/math/Euler.js
@@ -32,11 +33,12 @@ quaternionToEuler o@YXZ q = Euler o rX rY rZ
         (V3 m21 m22 m23)
         (V3 m31 m32 m33) = id $ fromQuaternion q
 
+     gimbal = not (nearZero (1 - abs m23))
      rX = asin(- (max (-1) $ min m23 1))
-     rY | abs m23 < 0.99999 = atan2 m13    m33
-        | otherwise         = atan2 (-m31) m11
-     rZ | abs m23 < 0.99999 = atan2 m21    m22
-        | otherwise         = 0
+     rY | gimbal    = atan2 m13    m33
+        | otherwise = atan2 (-m31) m11
+     rZ | gimbal    = atan2 m21    m22
+        | otherwise = 0
                
 
 -- | Take two vectors, and figure a 'Quaternion' that rotates between them.
@@ -57,3 +59,8 @@ betweenq v1 v2
     
     mid = V3 0 1 0
         
+eulerToQuaternion :: (Epsilon a, RealFloat a) => Euler a -> Quaternion a
+eulerToQuaternion (Euler YXZ x y z) = 1
+                   * axisAngle (V3 0 1 0) y 
+		  	       * axisAngle (V3 1 0 0) x 
+				   * axisAngle (V3 0 0 1) z
