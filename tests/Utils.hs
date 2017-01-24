@@ -20,7 +20,7 @@ import Linear.Quaternion.Utils
 
 main :: IO ()
 main = do
-     quickCheckWith stdArgs { maxSuccess = 1000000 } prop_betweenq
+--     quickCheckWith stdArgs { maxSuccess = 1000000 } prop_betweenq
      quickCheckWith stdArgs { maxSuccess = 1000000 } prop_q2e2q
      putStrLn "Success!"
 
@@ -33,8 +33,8 @@ test_betweenq v1 v2 = rotate (betweenq v1 v2) v1 - v2
 
 ------------------------------------------------------------------------------
 
-prop_q2e2q (A'Quaternion q) = eqQ (test_q2e2q q) q
-test_q2e2q = eulerToQuaternion . quaternionToEuler YXZ
+prop_q2e2q (A'Order o) (A'Quaternion q) = eqQ (test_q2e2q o q) q
+test_q2e2q o = eulerToQuaternion . quaternionToEuler o
 
 eqQ :: (Epsilon a, RealFloat a) => Quaternion a -> Quaternion a -> Bool
 eqQ qa qb = nearZero (qa - qb) || nearZero (qa + qb)
@@ -65,3 +65,64 @@ instance Arbitrary A'Quaternion where
 				   ]
 	      	      return $ A'Quaternion $ axisAngle v r
 
+
+newtype A'Order = A'Order Order
+  deriving Show
+
+instance Arbitrary A'Order where
+    arbitrary = A'Order <$> elements [XYZ, XZY, YXZ]
+
+
+data V = V String | Z | One | Neg V | Plus V V | Times V V
+    deriving Eq
+
+instance Show V where
+    show (V n) = n
+    show Z     = "0"
+    show One   = "1"
+    show (Neg v) = "-" ++ show v
+    show (Plus v1 v2) = show v1 ++ "+" ++ show v2
+    show (Times v1 v2) = show v1 ++ "*" ++ show v2
+
+instance Num V where
+    Z + n = n
+    n + Z = n
+    n + m = Plus n m
+    
+    Z * _ = Z
+    _ * Z = Z
+    One * n = n
+    n * One = n
+    (Neg n) * (Neg m) = n * m
+    n * (Neg m) = Neg (n * m)
+    Neg n * m = Neg (n * m)
+    n * m = Times n m
+
+    fromInteger 0 = Z
+    fromInteger 1 = One
+    fromInteger n = if n < 0 then Neg (negate (V $ show n)) else (V $ show n)
+    
+
+    negate Z       = Z
+    negate (Neg n) = n
+    negate n       = Neg n
+
+m :: V3 (V3 V)
+m = fmap (fmap V)
+  $ V3 (V3 "m11" "m12" "m13")
+       (V3 "m21" "m22" "m23")
+       (V3 "m31" "m32" "m33")
+
+m' = fmap (fmap V)
+  $ V3 (V3 "+m22" "-m21" "-m23")
+       (V3 "_"    "+m11" "-m13")
+       (V3 "_"    "-m31" "+m33")
+
+
+vX = V3 1 0 0 :: V3 Double
+vY = V3 0 1 0 :: V3 Double
+vZ = V3 0 0 1 :: V3 Double
+
+_1 (V3 x _ _) = x
+_2 (V3 _ x _) = x
+_3 (V3 _ _ x) = x

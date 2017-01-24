@@ -26,20 +26,56 @@ data Order = XYZ | XZY | YXZ | YZX | ZXY | ZYX
 
 -- | Convert a 'Quaternion' into a (ordered) 'Euler'.
 quaternionToEuler :: (Epsilon a, RealFloat a) => Order -> Quaternion a -> Euler a
-quaternionToEuler o@YXZ q = Euler o rX rY rZ
+quaternionToEuler o q = Euler o rX rY rZ
   where
      -- adapted from https://github.com/mrdoob/three.js/blob/master/src/math/Euler.js
      V3 (V3 m11 m12 m13)
         (V3 m21 m22 m23)
-        (V3 m31 m32 m33) = id $ fromQuaternion q
+        (V3 m31 m32 m33) = m !*! fromQuaternion q !*! m
 
-     gimbal = not (nearZero (1 - abs m23))
-     rX = asin(- (max (-1) $ min m23 1))
-     rY | gimbal    = atan2 m13    m33
-        | otherwise = atan2 (-m31) m11
-     rZ | gimbal    = atan2 m21    m22
-        | otherwise = 0
+     vX = V3 1 0 0
+     vY = V3 0 1 0
+     vZ = V3 0 0 1
+
+     m = case o of
+           XYZ ->    V3 vX vY vZ
+           XZY -> - (V3 vX vZ vY)
+           YXZ -> - (V3 vY vX vZ)
+                            
+     V3 rX rY rZ = res *! (m !*!
+         case o of
+           XYZ -> identity
+           XZY -> identity
+           YXZ -> identity)
+{-
+                          XYZ -> (r1,r2,r3)
+         XZY -> (-r1,-r3,-r2)
+         YXZ -> (-r2,-r1,-r3)
+         _ -> (r2,r1,r3)
+-}
+     res = case o of
+         _ -> r m13   (-m23) m33 (-m12) m11 m32    m22 
+-- for now
+--         YXZ -> r m13   (-m23) m33 (-m12) m11 m32    m22 
+--         ZYX {-YXZ-} -> r (-m23) m13 m33  m21  m22 (-m31) m11 
+
+r m23 m13 m33 m21 m22 m31' m11  = V3 r1 r2 r3
+       where
+         gimbal = not (nearZero (1 - abs m23))
+         r2 = asin((max (-1) $ min m23 1))
+         r1 | gimbal    = atan2 m13    m33
+            | otherwise = atan2 (m31') m11
+         r3 | gimbal    = atan2 m21    m22
+            | otherwise = 0
                
+{-
+    function f(w,x,y,z,order) {
+      var q = new THREE.Quaternion(x,y,z,w);
+      var e = new THREE.Euler(0,0,0,order);
+      e.setFromQuaternion(q);
+      return e;
+-} 
+
 
 -- | Take two vectors, and figure a 'Quaternion' that rotates between them.
 --   The result 'Quaternion' might not be unique.
@@ -60,7 +96,12 @@ betweenq v1 v2
     mid = V3 0 1 0
         
 eulerToQuaternion :: (Epsilon a, RealFloat a) => Euler a -> Quaternion a
-eulerToQuaternion (Euler YXZ x y z) = 1
-                   * axisAngle (V3 0 1 0) y 
-		  	       * axisAngle (V3 1 0 0) x 
-				   * axisAngle (V3 0 0 1) z
+eulerToQuaternion (Euler o x y z) = 
+    case o of
+      XYZ -> 1 * _x * _y * _z
+      XZY -> 1 * _x * _z * _y
+      YXZ -> 1 * _y * _x * _z
+  where
+      _x = axisAngle (V3 1 0 0) x 
+      _y = axisAngle (V3 0 1 0) y 
+      _z = axisAngle (V3 0 0 1) z
