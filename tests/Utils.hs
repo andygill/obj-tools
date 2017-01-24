@@ -20,8 +20,10 @@ import Linear.Quaternion.Utils
 
 main :: IO ()
 main = do
---     quickCheckWith stdArgs { maxSuccess = 1000000 } prop_betweenq
-     quickCheckWith stdArgs { maxSuccess = 1000000 } prop_q2e2q
+     quickCheckWith stdArgs { maxSuccess = 1000000 }    prop_betweenq
+     quickCheckWith stdArgs { maxSuccess = 1000000 }    prop_q2e2q
+     quickCheck                                        prop_invert
+     quickCheck                                        prop_reorder
      putStrLn "Success!"
 
 ------------------------------------------------------------------------------
@@ -141,3 +143,10 @@ bad o (q :: Quaternion Double) = do
     print e
     let q' = eulerToQuaternion e
     print q'
+    
+---------
+
+prop_invert (A'Order o) = invert (invert o) == o
+    
+prop_reorder (A'Order o) x y z = reorder (invert o) (reorder o v) == v 
+  where v = V3 x y z :: V3 Int

@@ -24,6 +24,31 @@ data Euler a = Euler
 data Order = XYZ | XZY | YXZ | YZX | ZXY | ZYX
      deriving (Eq, Ord, Show, Read)
 
+reorder :: Order -> V3 a -> V3 a
+reorder XYZ (V3 x y z) = V3 x y z
+reorder XZY (V3 x y z) = V3 x z y
+reorder YXZ (V3 x y z) = V3 y x z
+reorder YZX (V3 x y z) = V3 y z x
+reorder ZXY (V3 x y z) = V3 z x y
+reorder ZYX (V3 x y z) = V3 z y x
+
+invert :: Order -> Order
+invert XYZ = XYZ
+invert XZY = XZY
+invert YXZ = YXZ
+invert YZX = ZXY
+invert ZXY = YZX
+invert ZYX = ZYX
+{-
+     vX = V3 1 0 0
+     vY = V3 0 1 0
+     vZ = V3 0 0 1
+-}
+
+{-# RULES "invert" forall o . invert (invert o) = o #-}
+    
+{-# RULES "reorder" forall o v . reorder (invert o) (reorder o v) = v  #-}
+
 -- | Convert a 'Quaternion' into a (ordered) 'Euler'.
 quaternionToEuler :: (Epsilon a, RealFloat a) => Order -> Quaternion a -> Euler a
 quaternionToEuler o q = Euler o rX rY rZ
@@ -31,48 +56,23 @@ quaternionToEuler o q = Euler o rX rY rZ
      -- adapted from https://github.com/mrdoob/three.js/blob/master/src/math/Euler.js
      V3 (V3 m11 m12 m13)
         (V3 m21 m22 m23)
-        (V3 m31 m32 m33) = m !*! fromQuaternion q !*! transpose m
+        (V3 m31 m32 m33) = reorder o $ transpose $ reorder o $ transpose $ fromQuaternion q
 
-     vX = V3 1 0 0
-     vY = V3 0 1 0
-     vZ = V3 0 0 1
+     sgn x = case o of
+            XZY -> - x
+            YXZ -> - x
+            ZYX -> - x
+            _   ->   x
 
-     m = case o of
-           XYZ -> V3 vX vY vZ
-           XZY -> V3 vX vZ vY
-           YXZ -> V3 vY vX vZ
-           YZX -> V3 vY vZ vX -- **
-           ZXY -> V3 vZ vX vY
-           ZYX -> V3 vZ vY vX
-     sgn = case o of
-            XZY -> - V3 1 1 1
-            YXZ -> - V3 1 1 1
-            ZYX -> - V3 1 1 1
-            _   ->   V3 1 1 1
-
-     V3 rX rY rZ = (res *! m) * sgn
-     
-{-
-                          XYZ -> (r1,r2,r3)
-         XZY -> (-r1,-r3,-r2)
-         YXZ -> (-r2,-r1,-r3)
-         _ -> (r2,r1,r3)
--}
-     res = case o of
-         _ -> r m13   (-m23) m33 (-m12) m11 m32    m22 
--- for now
---         YXZ -> r m13   (-m23) m33 (-m12) m11 m32    m22 
---         ZYX {-YXZ-} -> r (-m23) m13 m33  m21  m22 (-m31) m11 
-
-r m23 m13 m33 m21 m22 m31' m11  = V3 r1 r2 r3
+     V3 rX rY rZ = sgn $ reorder (invert o) $ V3 r1 r2 r3
        where
-         gimbal = not (nearZero (1 - abs m23))
-         r2 = asin((max (-1) $ min m23 1))
-         r1 | gimbal    = atan2 m13    m33
-            | otherwise = atan2 (m31') m11
-         r3 | gimbal    = atan2 m21    m22
+         gimbal = not $ nearZero $ 1 - abs m13
+         r2 = asin $ max (-1) $ min m13 $ 1
+         r1 | gimbal    = atan2 (-m23) m33
+            | otherwise = atan2   m32  m22
+         r3 | gimbal    = atan2 (-m12) m11
             | otherwise = 0
-               
+     
 {-
     function f(w,x,y,z,order) {
       var q = new THREE.Quaternion(x,y,z,w);
@@ -113,3 +113,5 @@ eulerToQuaternion (Euler o x y z) =
       _x = axisAngle (V3 1 0 0) x 
       _y = axisAngle (V3 0 1 0) y 
       _z = axisAngle (V3 0 0 1) z
+
+
