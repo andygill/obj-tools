@@ -20,7 +20,7 @@ import Linear.Quaternion.Utils
 
 main :: IO ()
 main = do
-     let large = 1000000
+     let large = 100000
      quickCheckWith stdArgs { maxSuccess = large }    prop_betweenq
      quickCheckWith stdArgs { maxSuccess = large }    prop_q2e2q
      quickCheck                                       prop_invert

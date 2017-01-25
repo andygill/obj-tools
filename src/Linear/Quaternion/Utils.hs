@@ -131,6 +131,7 @@ quaternionToEuler o q = Euler o rX rY rZ
 betweenq :: (RealFloat a, Show a, Epsilon a, Floating a) => V3 a -> V3 a -> Quaternion a
 betweenq v1 v2 
     | nearZero c && nearZero (d - 1) = 1
+--    | nearZero c && nearZero (d + 1) = Quaternion qa (V3 qv2 qv1 (-qv3))
     | nearZero c && nearZero (d + 1) && (nearZero (mid - v1) || nearZero (mid - v2)) 
                                      = axisAngle (V3 1 0 0) pi 
     | nearZero c && nearZero (d + 1) = betweenq v1 mid * betweenq mid v2
@@ -146,18 +147,11 @@ betweenq v1 v2
         
 -- map a 'Euler' back into a 'Quaternion'
 eulerToQuaternion :: (Epsilon a, RealFloat a) => Euler a -> Quaternion a
-eulerToQuaternion (Euler o x y z) = 
-    case o of
-      XYZ -> 1 * _x * _y * _z
-      XZY -> 1 * _x * _z * _y
-      YXZ -> 1 * _y * _x * _z
-      YZX -> 1 * _y * _z * _x
-      ZXY -> 1 * _z * _x * _y
-      ZYX -> 1 * _z * _y * _x
+eulerToQuaternion (Euler o x y z) = product $ reorder o (V3 _x _y _z)
   where
-      _x = axisAngle (V3 1 0 0) x 
-      _y = axisAngle (V3 0 1 0) y 
-      _z = axisAngle (V3 0 0 1) z
+      _x = axisAngle xAxis x 
+      _y = axisAngle yAxis y 
+      _z = axisAngle zAxis z
 
 -- Normals along specific axis.
 xAxis, yAxis, zAxis :: Num a => V3 a
