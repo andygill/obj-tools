@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ScopedTypeVariables, OverloadedStrings #-}
 module Main where
 
 import Codec.Wavefront
