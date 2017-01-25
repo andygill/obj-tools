@@ -20,10 +20,11 @@ import Linear.Quaternion.Utils
 
 main :: IO ()
 main = do
-     quickCheckWith stdArgs { maxSuccess = 1000000 }    prop_betweenq
-     quickCheckWith stdArgs { maxSuccess = 1000000 }    prop_q2e2q
-     quickCheck                                        prop_invert
-     quickCheck                                        prop_reorder
+     let large = 1000000
+     quickCheckWith stdArgs { maxSuccess = large }    prop_betweenq
+     quickCheckWith stdArgs { maxSuccess = large }    prop_q2e2q
+     quickCheck                                       prop_invert
+     quickCheck                                       prop_reorder
      putStrLn "Success!"
 
 ------------------------------------------------------------------------------
