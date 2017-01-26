@@ -125,25 +125,33 @@ quaternionToEuler o q = Euler o rX rY rZ
       return e;
 -} 
 
+-- Adapted from http://stackoverflow.com/questions/1171849/finding-quaternion-representing-the-rotation-from-one-vector-to-another
 
 -- | Take two vectors, and figure a 'Quaternion' that rotates between them.
 --   The result 'Quaternion' might not be unique.
 betweenq :: (RealFloat a, Show a, Epsilon a, Floating a) => V3 a -> V3 a -> Quaternion a
 betweenq v1 v2 
-    | nearZero c && nearZero (d - 1) = 1
---    | nearZero c && nearZero (d + 1) = Quaternion qa (V3 qv2 qv1 (-qv3))
-    | nearZero c && nearZero (d + 1) && (nearZero (mid - v1) || nearZero (mid - v2)) 
-                                     = axisAngle (V3 1 0 0) pi 
-    | nearZero c && nearZero (d + 1) = betweenq v1 mid * betweenq mid v2
-    | otherwise  = axisAngle cn ca
+      -- for 180 rotation, rotate around any orthogonal vector
+    | nearZero (d + 1) = axisAngle (orthogonal n_v1) pi
+    | otherwise        = axisAngle c (acos d)
   where
-    c@(V3 xc yc zc) = cross v1 v2
-    d = dot (normalize v1) (normalize v2)
-    cn = normalize c
+    n_v1 = normalize v1
+    n_v2 = normalize v2
+    c = cross n_v1 n_v2
+    d = max (-1) $ min 1 $ dot n_v1 n_v2
     ca = acos d
-    q = axisAngle cn ca
-    
-    mid = V3 0 1 0
+
+-- for a slightly better solution
+
+orthogonal :: (Ord a, Num a) => V3 a -> V3 a
+orthogonal v = cross v other
+  where
+    V3 x y z = abs v
+    other | x < y && x < z = xAxis
+          | x < y          = zAxis
+          | y < z          = yAxis
+          | otherwise      = zAxis
+
         
 -- map a 'Euler' back into a 'Quaternion'
 eulerToQuaternion :: (Epsilon a, RealFloat a) => Euler a -> Quaternion a

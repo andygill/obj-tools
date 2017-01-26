@@ -20,14 +20,23 @@ import Linear.Quaternion.Utils
 
 main :: IO ()
 main = do
-     let large = 100000
+     let large = 1000000
      quickCheckWith stdArgs { maxSuccess = large }    prop_betweenq
      quickCheckWith stdArgs { maxSuccess = large }    prop_q2e2q
      quickCheck                                       prop_invert
      quickCheck                                       prop_reorder
+     quickCheckWith stdArgs { maxSuccess = large }    prop_orthogonal 
      putStrLn "Success!"
 
 ------------------------------------------------------------------------------
+
+prop_orthogonal (A'V3 v) =
+    not (nearZero v) ==> nearZero (dot (normalize v) (normalize (orthogonal v)))
+
+
+------------------------------------------------------------------------------
+
+
 prop_betweenq (A'V3 v1) (A'V3 v2) =
     not (nearZero v1 || nearZero v2) ==>
     nearZero $ test_betweenq (normalize v1) (normalize v2)
